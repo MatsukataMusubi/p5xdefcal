@@ -1,0 +1,76 @@
+{
+  "Joker": {
+    "base_stats": {
+      "attack": 350,
+      "crit_rate": 0.05,
+      "crit_damage": 0.50,
+      "penetration": 0.0,
+      "additive_damage_bonus": 0.0,
+      "final_damage_bonus": 0.0
+    },
+    "weapon": {
+      "name": "初始之枪",
+      "base_attack": 500,
+      "penetration": 0.10
+    },
+    "revelations": [
+      {
+        "name": "力量I",
+        "set_name": "力量",
+        "position": "SUN"
+      },
+      {
+        "name": "力量II",
+        "set_name": "力量",
+        "position": "MOON"
+      }
+    ],
+    "skills": [
+      {
+        "name": "无畏压制",
+        "multiplier": 0.83,
+        "sp_cost": 19,
+        "skill_type": "NORMAL",
+        "damage_type": "诅咒",
+        "effect_names": ["GENERATE_SHAQI_1"]
+      },
+      {
+        "name": "厄运追击",
+        "multiplier": 0.742,
+        "sp_cost": 22,
+        "skill_type": "NORMAL",
+        "damage_type": "诅咒",
+        "effect_names": []
+      },
+      {
+        "name": "HIGHLIGHT",
+        "multiplier": 2.05,
+        "sp_cost": 0,
+        "skill_type": "HIGHLIGHT",
+        "damage_type": "诅咒",
+        "effect_names": ["GENERATE_SHAQI_1"]
+      }
+    ]
+  },
+  "Li Yaoling": {
+    "base_stats": {
+      "attack": 200,
+      "crit_rate": 0.05,
+      "crit_damage": 0.50
+    },
+    "weapon": {
+      "name": "辅助扇",
+      "base_attack": 300
+    },
+    "skills": [
+      {
+        "name": "激励之舞",
+        "multiplier": 0,
+        "sp_cost": 20,
+        "skill_type": "NORMAL",
+        "damage_type": "辅助",
+        "effect_names": ["APPLY_ATTACK_UP_JOKER"]
+      }
+    ]
+  }
+}

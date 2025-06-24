@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P5X 智能分析工具</title>
+    <!-- 引入Tailwind CSS框架，用于快速构建美观的界面 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 使用更现代的字体 */
+        body { font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'; }
+        /* 定义加载动画的样式 */
+        .loader {
+            border: 4px solid #e5e7eb; /* 灰色底圈 */
+            border-top: 4px solid #4f46e5; /* 靛蓝色动圈 */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 antialiased">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">P5X 智能分析工具</h1>
+            <p class="text-md text-gray-600 mt-2">一个用于P5X角色性能分析与团队构建的Web应用</p>
+        </header>
+
+        <main class="bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-2xl font-semibold mb-6 border-b pb-3 text-gray-800">分析配置</h2>
+            <form id="analysis-form">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="character-select" class="block text-sm font-medium text-gray-700 mb-1">选择分析角色:</label>
+                        <select id="character-select" name="character_id" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                            <!-- Jinja2模板语法：Flask会在这里动态生成角色选项 -->
+                            {% for character in characters %}
+                                <option value="{{ character }}">{{ character }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="turns-input" class="block text-sm font-medium text-gray-700 mb-1">分析回合数:</label>
+                        <input type="number" id="turns-input" name="turns" value="3" min="1" max="10" class="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    </div>
+                </div>
+                <!-- 按钮区域 -->
+                <div class="mt-8 flex justify-center gap-4">
+                    <button type="submit" id="submit-button" class="w-full md:w-auto inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                        手动分析
+                    </button>
+                    <button type="button" id="find-rotation-button" class="w-full md:w-auto inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                        查找最优排轴
+                    </button>
+                </div>
+            </form>
+        </main>
+
+        <!-- 结果显示区域，默认隐藏 -->
+        <section id="results-section" class="mt-8 bg-white p-6 rounded-lg shadow-lg hidden">
+             <h2 class="text-2xl font-semibold mb-4 border-b pb-3 text-gray-800">分析报告</h2>
+             <div id="results-content">
+                <!-- 结果将通过JavaScript动态插入此处 -->
+             </div>
+        </section>
+
+    </div>
+
+    <script>
+        // === JavaScript 交互逻辑 ===
+
+        // 1. 获取所有需要操作的HTML元素
+        const form = document.getElementById('analysis-form');
+        const resultsSection = document.getElementById('results-section');
+        const resultsContent = document.getElementById('results-content');
+        const submitButton = document.getElementById('submit-button');
+        const findRotationButton = document.getElementById('find-rotation-button');
+
+        // 2. 为“手动分析”按钮所在的表单添加提交事件监听器
+        form.addEventListener('submit', function(event) {
+            // 阻止表单的默认提交行为，否则会刷新整个页面
+            event.preventDefault(); 
+            // 调用我们封装的通用请求函数，并告知它请求的API地址是'/analyze'
+            handleAnalysisRequest('/analyze');
+        });
+
+        // 3. 为“查找最优排轴”按钮添加点击事件监听器
+        findRotationButton.addEventListener('click', function() {
+            // 调用我们封装的通用请求函数，并告知它请求的API地址是'/find_best_rotation'
+            handleAnalysisRequest('/find_best_rotation', true); // 第二个参数true表示这是智能查找
+        });
+
+        // 4. 封装一个通用的请求处理函数，避免代码重复
+        async function handleAnalysisRequest(endpoint, isOptimal = false) {
+            // a. 显示加载状态，并禁用按钮防止重复点击
+            setLoadingState(true, isOptimal);
+
+            // b. 从表单中收集用户选择的数据
+            const formData = new FormData(form);
+            const requestBody = {
+                character_id: formData.get('character_id'),
+                turns: formData.get('turns')
+            };
+
+            // c. 使用fetch API异步向后端发送POST请求
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                const data = await response.json();
+
+                // d. 根据响应状态码，决定是显示结果还是显示错误
+                if (response.ok) { // HTTP状态码为 2xx
+                    displayResults(data, isOptimal);
+                } else {
+                    displayError(data.error || '发生未知错误');
+                }
+            } catch (error) {
+                // e. 如果网络请求本身失败（如服务器关闭），则显示网络错误
+                console.error('Fetch Error:', error);
+                displayError('无法连接到分析服务器。请检查网络连接和服务器状态。');
+            } finally {
+                // f. 无论成功还是失败，最后都要恢复按钮状态
+                setLoadingState(false, isOptimal);
+            }
+        }
+        
+        // 5. 封装一个用于控制加载状态的函数
+        function setLoadingState(isLoading, isOptimal) {
+            if (isLoading) {
+                resultsSection.classList.remove('hidden');
+                resultsContent.innerHTML = '<div class="flex justify-center p-8"><div class="loader"></div></div>';
+                submitButton.disabled = true;
+                findRotationButton.disabled = true;
+                if (isOptimal) {
+                    findRotationButton.innerText = '正在智能查找...';
+                } else {
+                    submitButton.innerText = '正在分析中...';
+                }
+            } else {
+                submitButton.disabled = false;
+                findRotationButton.disabled = false;
+                submitButton.innerText = '手动分析';
+                findRotationButton.innerText = '查找最优排轴';
+            }
+        }
+
+        // 6. 封装一个用于显示成功结果的函数
+        function displayResults(data, isOptimal = false) {
+            const rotationTitle = isOptimal ? "智能最优排轴" : "手动测试排轴";
+            const html = `
+                <div class="space-y-4">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900">角色: <span class="text-indigo-600 font-bold">${data.character_id}</span></h3>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-lg text-center">
+                        <p class="text-sm text-gray-500">平均每轮伤害 (DPR)</p>
+                        <p class="text-3xl font-bold text-gray-900">${data.dpr.toFixed(2)}</p>
+                    </div>
+                    <div class="text-sm text-gray-600 space-y-1 pt-2">
+                        <p><strong>总伤害:</strong> ${data.total_damage.toFixed(2)}</p>
+                        <p><strong>${rotationTitle}:</strong> ${data.rotation.join(' → ')}</p>
+                        <p><strong>结束时资源:</strong> ${JSON.stringify(data.final_resources)}</p>
+                    </div>
+                </div>
+            `;
+            resultsContent.innerHTML = html;
+        }
+
+        // 7. 封装一个用于显示错误的函数
+        function displayError(message) {
+            const html = `
+                <div class="p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
+                    <p class="font-bold">分析失败</p>
+                    <p>${message}</p>
+                </div>
+            `;
+            resultsContent.innerHTML = html;
+        }
+    </script>
+
+</body>
+</html>
