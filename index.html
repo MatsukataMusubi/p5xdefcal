@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P5X 防御效率计算器 (最终修正版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-blue: #00d4ff;
+            --secondary-blue: #0099cc;
+            --accent-teal: #00b3b3;
+            --summer-green: #00cc88;
+            --warm-yellow: #ffd700;
+            --coral-pink: #ff6b6b;
+            --deep-purple: #6a4c93;
+            --light-bg: #f0f8ff;
+            --card-bg: #f8f4ff;
+            --card-bg-alt: #f0e8ff;
+            --border-color: #e1d8f0;
+            --text-dark: #2d3748;
+            --text-light: #4a5568;
+            --title-bg: #e6d9ff;
+        }
+        
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0f8ff 50%, #e6fffa 100%);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                url('./samples/spine/bg.jpg') center/cover no-repeat,
+                radial-gradient(circle at 20% 80%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(0, 179, 179, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(0, 204, 136, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+            opacity: 0.3;
+        }
+        
+        .calculator-container {
+            max-width: 1400px;
+            margin: auto;
+            padding: 1rem;
+        }
+        
+        @media (min-width: 768px) {
+            .calculator-container {
+                padding: 2rem;
+            }
+        }
+        
+        /* Header Section */
+        .header-section {
+            margin-bottom: 2rem;
+            position: relative;
+        }
+        
+        .header-top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+        
+        .logo-container {
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        
+        .logo {
+            height: 80px;
+            width: auto;
+            filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.3));
+        }
+        
+        .banner {
+            max-width: 100%;
+            height: auto;
+            border-radius: 1rem;
+            box-shadow: 0 8px 32px rgba(0, 212, 255, 0.2);
+            margin: 0 auto 2rem auto;
+            display: block;
+        }
+        
+        .title-section {
+            flex-grow: 1;
+            text-align: center;
+            min-width: 300px;
+        }
+        
+        .main-title-image {
+            height: 80px; /* 与logo高度保持一致 */
+            width: auto;
+            margin: 0 auto 0.5rem auto; /* 居中显示 */
+            display: block; /* 确保居中生效 */
+            /* 添加发光效果 */
+            filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.5));
+        }
+        
+        .subtitle {
+            font-size: 1.1rem;
+            color: white;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            /* P5系列粗描边效果 */
+            text-shadow: 
+                -2px -2px 0 #000, -2px -1px 0 #000, -2px 0px 0 #000, -2px 1px 0 #000, -2px 2px 0 #000,
+                -1px -2px 0 #000, -1px -1px 0 #000, -1px 0px 0 #000, -1px 1px 0 #000, -1px 2px 0 #000,
+                0px -2px 0 #000, 0px -1px 0 #000, 0px 1px 0 #000, 0px 2px 0 #000,
+                1px -2px 0 #000, 1px -1px 0 #000, 1px 0px 0 #000, 1px 1px 0 #000, 1px 2px 0 #000,
+                2px -2px 0 #000, 2px -1px 0 #000, 2px 0px 0 #000, 2px 1px 0 #000, 2px 2px 0 #000;
+        }
+        
+        /* Card Styling */
+        .card {
+            background: linear-gradient(145deg, var(--card-bg), var(--card-bg-alt));
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border: 2px solid var(--border-color);
+            box-shadow: 
+                0 8px 32px rgba(0, 212, 255, 0.1),
+                0 4px 16px rgba(0, 179, 179, 0.1);
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-blue), var(--accent-teal), var(--summer-green));
+        }
+        
+        label {
+            display: block;
+            color: var(--accent-teal);
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        input, select {
+            width: 100%;
+            background: linear-gradient(145deg, var(--card-bg), var(--card-bg-alt));
+            border: 2px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 0.75rem;
+            color: var(--text-dark);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        select option {
+            background: var(--card-bg);
+            color: var(--text-dark);
+            padding: 0.5rem;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 
+                0 0 0 3px rgba(0, 212, 255, 0.2),
+                inset 0 2px 4px rgba(0, 0, 0, 0.2);
+            transform: translateY(-1px);
+        }
+        
+        /* Results Display */
+        .result-display {
+            background: linear-gradient(145deg, var(--card-bg), var(--card-bg-alt));
+            border-radius: 1rem;
+            padding: 1.5rem;
+            text-align: center;
+            border: 2px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0, 212, 255, 0.1);
+        }
+        
+        .result-display::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-blue), var(--accent-teal));
+        }
+        
+        .result-display .value {
+            font-family: 'Orbitron', monospace;
+            font-size: 2.5rem;
+            font-weight: 900;
+            background: linear-gradient(45deg, var(--primary-blue), var(--warm-yellow));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(-2px -2px 0 #000) drop-shadow(-2px -1px 0 #000) drop-shadow(-2px 0px 0 #000) drop-shadow(-2px 1px 0 #000) drop-shadow(-2px 2px 0 #000) drop-shadow(-1px -2px 0 #000) drop-shadow(-1px -1px 0 #000) drop-shadow(-1px 0px 0 #000) drop-shadow(-1px 1px 0 #000) drop-shadow(-1px 2px 0 #000) drop-shadow(0px -2px 0 #000) drop-shadow(0px -1px 0 #000) drop-shadow(0px 1px 0 #000) drop-shadow(0px 2px 0 #000) drop-shadow(1px -2px 0 #000) drop-shadow(1px -1px 0 #000) drop-shadow(1px 0px 0 #000) drop-shadow(1px 1px 0 #000) drop-shadow(1px 2px 0 #000) drop-shadow(2px -2px 0 #000) drop-shadow(2px -1px 0 #000) drop-shadow(2px 0px 0 #000) drop-shadow(2px 1px 0 #000) drop-shadow(2px 2px 0 #000);
+            filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.3));
+        }
+        
+        .result-display .label {
+            color: white;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 0.5rem;
+            text-shadow: 
+                -1px -1px 0 #000, -1px 0px 0 #000, -1px 1px 0 #000,
+                0px -1px 0 #000, 0px 0px 0 #000, 0px 1px 0 #000,
+                1px -1px 0 #000, 1px 0px 0 #000, 1px 1px 0 #000;
+        }
+        
+        /* Team Grid */
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        @media (max-width: 768px) {
+            .team-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Character Cards */
+        .character-card {
+            background: linear-gradient(145deg, var(--card-bg), var(--card-bg-alt));
+            border: 2px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 16px rgba(0, 212, 255, 0.1);
+        }
+        
+        .character-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-blue), var(--accent-teal));
+        }
+        
+        .character-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 212, 255, 0.15);
+        }
+        
+        .character-card.is-wonder {
+            background: linear-gradient(145deg, #fff8e1, #fff3e0);
+            border-color: var(--warm-yellow);
+        }
+        
+        .character-card.is-wonder::before {
+            background: linear-gradient(90deg, var(--warm-yellow), var(--coral-pink));
+        }
+        
+        /* Character Avatar */
+        .character-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: linear-gradient(145deg, var(--primary-blue), var(--accent-teal));
+            border: 3px solid var(--border-color);
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 16px rgba(0, 212, 255, 0.2);
+        }
+        
+        .character-avatar:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 24px rgba(0, 212, 255, 0.3);
+        }
+        
+        /* QR Code Section */
+        .qr-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+        
+        .qr-code {
+            width: 120px;
+            height: 120px;
+            border-radius: 1rem;
+            border: 3px solid var(--primary-blue);
+            box-shadow: 0 4px 16px rgba(0, 212, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .qr-code:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 24px rgba(0, 212, 255, 0.4);
+        }
+        
+        .qr-text {
+            text-align: center;
+            color: white;
+            font-weight: 700;
+            font-size: 0.9rem;
+            text-shadow: 
+                -1px -1px 0 #000, -1px 0px 0 #000, -1px 1px 0 #000,
+                0px -1px 0 #000, 0px 0px 0 #000, 0px 1px 0 #000,
+                1px -1px 0 #000, 1px 0px 0 #000, 1px 1px 0 #000;
+        }
+        
+        .qr-text p {
+            margin: 0.2rem 0;
+        }
+        
+        /* Buff List */
+        .buff-list {
+            margin-top: 1rem;
+            border-top: 2px solid var(--border-color);
+            padding-top: 1rem;
+        }
+        
+        .character-card.is-wonder .buff-list {
+            max-height: none;
+            overflow-y: visible;
+        }
+        
+        .wonder-buff-grid {
+            display: grid;
+            grid-template-columns: minmax(150px, 1fr) 3fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+        
+        @media (max-width: 768px) {
+            .wonder-buff-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .persona-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 0.75rem;
+        }
+        
+        .buff-column h3 {
+            font-weight: bold;
+            color: var(--primary-blue);
+            margin-bottom: 0.75rem;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .buff-item {
+            display: flex;
+            align-items: center;
+            background: linear-gradient(145deg, var(--card-bg), var(--card-bg-alt));
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+            gap: 0.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        .buff-item:hover {
+            transform: translateX(4px);
+            border-color: var(--primary-blue);
+            box-shadow: 0 4px 16px rgba(0, 212, 255, 0.1);
+        }
+        
+        .buff-item input[type="checkbox"] {
+            width: 1.25rem;
+            height: 1.25rem;
+            accent-color: var(--primary-blue);
+            flex-shrink: 0;
+        }
+        
+        .buff-item label {
+            margin-bottom: 0;
+            color: var(--text-dark);
+            flex-grow: 1;
+            cursor: pointer;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: unset;
+            font-weight: 500;
+            min-width: 0;
+            word-break: break-word;
+            line-height: 1.2;
+        }
+        
+        .buff-item .buff-value-input {
+            width: 80px;
+            text-align: right;
+            padding: 0.5rem;
+            font-weight: bold;
+            color: #1a202c;
+            background: #ffffff;
+            border: 2px solid var(--primary-blue);
+            border-radius: 0.5rem;
+            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .duration-display {
+            width: 60px;
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--accent-teal);
+            flex-shrink: 0;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        .buff-type {
+            font-size: 0.75rem;
+            font-weight: bold;
+            padding: 0.1rem 0.4rem;
+            border-radius: 0.25rem;
+            margin-right: 0.5rem;
+            color: white;
+            flex-shrink: 0;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.2);
+        }
+        .buff-type-penetration {
+            background-color: var(--accent-teal);
+        }
+        .buff-type-reduction {
+            background-color: var(--coral-pink);
+        }
+        
+        /* Section Title Styling */
+        .card h2 {
+            background: linear-gradient(145deg, var(--title-bg), #d4c4f0);
+            color: white;
+            padding: 1rem 1.5rem;
+            margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+            border-radius: 1rem 1rem 0 0;
+            text-align: center;
+            font-weight: 900;
+            text-shadow: 
+                -2px -2px 0 #000, -2px -1px 0 #000, -2px 0px 0 #000, -2px 1px 0 #000, -2px 2px 0 #000,
+                -1px -2px 0 #000, -1px -1px 0 #000, -1px 0px 0 #000, -1px 1px 0 #000, -1px 2px 0 #000,
+                0px -2px 0 #000, 0px -1px 0 #000, 0px 0px 0 #000, 0px 1px 0 #000, 0px 2px 0 #000,
+                1px -2px 0 #000, 1px -1px 0 #000, 1px 0px 0 #000, 1px 1px 0 #000, 1px 2px 0 #000,
+                2px -2px 0 #000, 2px -1px 0 #000, 2px 0px 0 #000, 2px 1px 0 #000, 2px 2px 0 #000;
+            border-bottom: 2px solid var(--border-color);
+        }
+        
+        .card > p {
+            color: var(--text-dark);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            margin: 0 0 1.5rem 0;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        
+        .needed-values-display {
+            background: linear-gradient(145deg, #2d1b69, #4a148c);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            text-align: center;
+            border: 2px solid var(--border-color);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+        
+        .needed-values-display p {
+            color: #e6d9ff;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: none;
+            border: none;
+            padding: 0;
+            font-size: 1.1rem;
+            text-shadow: 
+                -1px -1px 0 #000, -1px 0px 0 #000, -1px 1px 0 #000,
+                0px -1px 0 #000, 0px 0px 0 #000, 0px 1px 0 #000,
+                1px -1px 0 #000, 1px 0px 0 #000, 1px 1px 0 #000;
+        }
+        
+        .needed-values {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #f0f0f0;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin-top: 0.5rem;
+        }
+        
+        .needed-values span {
+            color: #ffd700;
+            font-weight: 900;
+            font-size: 1.5rem;
+            text-shadow: 
+                -2px -2px 0 #000, -2px -1px 0 #000, -2px 0px 0 #000, -2px 1px 0 #000, -2px 2px 0 #000,
+                -1px -2px 0 #000, -1px -1px 0 #000, -1px 0px 0 #000, -1px 1px 0 #000, -1px 2px 0 #000,
+                0px -2px 0 #000, 0px -1px 0 #000, 0px 0px 0 #000, 0px 1px 0 #000, 0px 2px 0 #000,
+                1px -2px 0 #000, 1px -1px 0 #000, 1px 0px 0 #000, 1px 1px 0 #000, 1px 2px 0 #000,
+                2px -2px 0 #000, 2px -1px 0 #000, 2px 0px 0 #000, 2px 1px 0 #000, 2px 2px 0 #000;
+            filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.6));
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+<div class="calculator-container">
+    <div class="header-section">
+        <div class="header-top-row">
+            <div class="logo-container">
+                <img src="./samples/spine/logo.png" alt="P5X Logo" class="logo">
+            </div>
+            <div class="title-section">
+                 <img src="./samples/spine/biaoti.png" alt="P5X 防御效率计算器" class="main-title-image">
+                 <p class="subtitle">配置您的队伍，计算击穿敌人防御所需的穿透与减防</p>
+            </div>
+            <div class="qr-section">
+                <img src="./samples/spine/二维码.png" alt="B站关注二维码" class="qr-code">
+                <div class="qr-text">
+                    <p>关注我的B站</p>
+                    <p>获取更多P5X攻略</p>
+                </div>
+            </div>
+        </div>
+        <img src="./samples/spine/banner.png" alt="Summer Event Banner" class="banner">
+    </div>
+
+    <div class="card mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+                <label for="boss-select">Boss选择</label>
+                <select id="boss-select"></select>
+            </div>
+            <div>
+                <label for="boss-def">基础防御</label>
+                <input type="number" id="boss-def" value="1280">
+            </div>
+            <div>
+                <label for="boss-def-coeff">防御系数 (%)</label>
+                <input type="number" id="boss-def-coeff" value="258.4">
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div class="result-display">
+                <div id="total-penetration" class="value">0.0%</div>
+                <div class="label">穿透总和</div>
+            </div>
+            <div class="result-display">
+                <div id="total-reduction" class="value">0.0%</div>
+                <div class="label">减防总和</div>
+            </div>
+            <div class="result-display">
+                <div id="damage-increase" class="value text-green-400">0.0%</div>
+                <div class="label">等效最终增伤</div>
+            </div>
+        </div>
+        <div class="needed-values-display">
+            <p>离防御系数为0，还需要：</p>
+            <div class="needed-values">
+                <span id="needed-penetration">0.0%</span> 穿透 或 <span id="needed-reduction">0.0%</span> 减防
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>主队配置</h2>
+        <p>提示：所有默认数值基于满级技能（10级技能+5级心象）。您可以直接在文本框中修改以匹配您的实际情况。</p>
+        
+        <div id="wonder-container" class="mb-6"></div>
+        <div id="team-container" class="team-grid"></div>
+        
+        <h2>解明位</h2>
+        <div id="enlightenment-container" class="team-grid"></div>
+    </div>
+</div>
+
+<script>
+// --- DATA FROM CSV & MD ---
+const penetrationCsv = `,,,穿透,需要意识,持续时间
+解明,长尾爱歌,潜能2,12,,
+,,3技能,13.2,,-
+辅助,岳羽由加莉,1技能,20,意识1,1
+辅助,桥本麻由美,3技能（主目标）,10.8,,1
+,,3级急速状态,15,,-
+,,3技能（主目标）,10,意识1,1
+辅助,池波星辉,3技能,13.7,,2
+辅助,宫下美波,意识1,20,意识1,2
+辅助,芦谷真咲,意识1,15,意识1,
+主c,鹿野莓,心象5,7.5,,
+主c,真田明彦,斗志4,12,,
+主c,结城理,3技能（4层月相）,12.9,,
+,,月相状态,12,,-
+,,意识1,10,意识1,
+,,心象5,7.5,,
+主C,明智吾郎,执政官模式,21,,
+,,心象5,7.5,,
+,,专武0改,25,,
+主C,喜多川祐介,潜能2,20,,1
+,,意识6反击,30,意识6,
+主C,新岛真,意识3 5种元素异常以上,30,意识3,
+主C,奥村春,意识6瞄准目标,12,意识6,
+主C,琴音蒙塔涅,意识6 5颗结晶追击,20,意识6,
+主C,坂本龙司,意识6暴击时,35,意识3`;
+
+const reductionCsv = `,,,减防,需要意识,持续时间
+,wonder,紫刀5改,22,,,
+,,咒刀6改,25,,3
+,,黄刀5改,36,,2
+,面具技能,拉昆达,38.8,,3
+,面具技能,音律侵袭,32,,3
+,面具技能,玛哈拉昆达,27.1,,3
+,,毗湿奴,48,,2
+,,诺伦,31.5,,2
+,,亚诺希克,41.6,,2
+,,年兽,10,,2
+,,湿婆,45,,1
+,,斯拉欧加,25,,1
+辅助,宫下美波·夏日,1技能,25,意识2,3
+主C,鹿野莓,意识1,30,意识1,
+,,意识6,45,意识6,
+辅助,夏川澪,1技能,43,,3
+,,3技能（强化）,48.4,,2
+,,专武0改,23.3,,2
+解明,佐仓双叶,1技能（弱点）,65.7,,3
+,,1技能（弱点）,80.3,意识4,3
+,,1技能（弱点）,93.1,意识5,3
+主C,明智吾郎,技能2,28,,2
+主C,琴音蒙塔涅,意识2,40,意识2,3
+辅助,野毛朋子·夏日,意识1,45,意识1,3
+辅助,道玄坂琉七,0改专武（技能1）,16.7,,2
+,,0改专武（技能2）,33.3,,2
+,,技能3,18,,2
+,,技能1,55.6,,2
+,,技能2,73.9,,2
+解明,多祢村理子,1技能,45.5,,2
+辅助,李瑶玲,1技能,55.6,,2
+辅助,加纳俊,2技能,62.4,,2
+,,射击,35,,3
+,,专武0改（受击）,30,,1`;
+
+// --- GLOBAL VARIABLES ---
+let characterDb = {};
+let allBuffs = [];
+let characters = [];
+let enlightenmentChars = [];
+let mainDpsChars = [];
+let supportChars = [];
+
+const recommendedTeams = {
+    '佐原海夕·夏日': { support: ['宫下美波·夏日', '桥本麻由美'], enlightenment: '长尾爱歌' },
+    '鹿野莓': { support: ['坂井绫香', '宫下美波·夏日'], enlightenment: '长尾爱歌' },
+    '真田明彦': { support: ['桥本麻由美', '多祢村理子·未央'], enlightenment: '佐仓双叶' },
+    '结城理': { support: ['岳羽由加莉', '多祢村理子·未央'], enlightenment: '长尾爱歌' },
+    '北里基良': { support: ['夏川澪', '宫下美波'], enlightenment: '椎名悠美' },
+    '须见俊也': { support: ['野毛朋子·夏日', '夏川澪'], enlightenment: '椎名悠美' },
+    '喜多川祐介': { support: ['宫下美波·夏日', '芦谷真咲'], enlightenment: '佐仓双叶' },
+    '新岛真': { support: ['长尾千津子', '多祢村理子·未央'], enlightenment: '长尾爱歌' },
+    '奥村春': { support: ['野毛朋子·夏日', '多祢村理子·未央'], enlightenment: '长尾爱歌' },
+    '琴音蒙塔涅': { support: ['宫下美波·夏日', '道玄坂琉七'], enlightenment: '长尾爱歌' },
+    '坂本龙司': { support: ['加纳俊', '神山岭央'], enlightenment: '长尾爱歌' },
+    '李瑶玲太平乐': { support: ['宫下美波·夏日', '夏川澪'], enlightenment: '长尾爱歌' },
+    '芳泽霞': { support: ['坂井绫香', '宫下美波·夏日'], enlightenment: '长尾爱歌' },
+    '新井素羽·夏日': { support: ['宫下美波', '多祢村理子·未央'], enlightenment: '长尾爱歌' },
+    'YUI': { support: ['夏川澪', '宫下美波·夏日'], enlightenment: '长尾爱歌' },
+    '雨宫莲': { support: ['桥本麻由美', '多祢村理子·未央'], enlightenment: '长尾爱歌' },
+    '高卷杏': { support: ['多祢村理子·未央', '夏川澪'], enlightenment: '长尾爱歌' },
+    '琴音蒙塔涅漫舞': { support: ['宫下美波·夏日', '多祢村理子·未央'], enlightenment: '长尾爱歌' },
+};
+const bosses = {
+    "---模板A (1280/363.2%)---": { def: 1280, coeff: 363.2 },
+    "---模板B (1280/258.4%)---": { def: 1280, coeff: 258.4 },
+    "---模板C (1280/305.9%)---": { def: 1280, coeff: 305.9 },
+    "---模板D (855/263.2%)---": { def: 855, coeff: 263.2 },
+    "苏鲁特": { def: 821, coeff: 258.4 },
+    "拉弥亚": { def: 821, coeff: 258.4 },
+    "杰克灯笼": { def: 364, coeff: 258.4 },
+    "韦驮天": { def: 364, coeff: 258.4 },
+    "迦楼罗": { def: 364, coeff: 258.4 },
+    "佳塔由": { def: 364, coeff: 258.4 },
+    "荷鲁斯": { def: 364, coeff: 258.4 },
+    "八咫乌": { def: 364, coeff: 258.4 },
+    "座天使": { def: 1280, coeff: 258.4 },
+    "大天使": { def: 1280, coeff: 258.4 },
+    "魔罗": { def: 1280, coeff: 258.4 },
+    "自定义": { def: 1280, coeff: 258.4 }
+};
+
+// --- DATA PARSING AND SETUP ---
+function parseCsv(csvString, type) {
+    const lines = csvString.trim().split('\n').slice(1);
+    const data = [];
+    let currentRole = '';
+    let currentName = '';
+    lines.forEach((line, index) => {
+        const columns = line.split(',');
+        let role = columns[0].trim() || currentRole;
+        const name = columns[1].trim() || currentName;
+        const source = columns[2].trim();
+        const value = parseFloat(columns[3]);
+        const consciousness = columns[4] && columns[4].trim().replace(/意识/g, '') !== '' ? columns[4].trim().replace(/意识/g, '') : '0';
+        const duration = columns[5] ? columns[5].trim() : '';
+        if (!role && name === 'wonder') role = 'WONDER';
+        if ((role || name === 'wonder' || role === '面具技能' || role === '启示') && source && !isNaN(value)) {
+            data.push({ id: `${type}-${index}`, role: (role || 'WONDER').toUpperCase(), name: name || role, source, value, consciousness, duration, type });
+        }
+        currentRole = role;
+        currentName = name;
+    });
+    return data;
+}
+
+function setupData() {
+    const penetrationData = parseCsv(penetrationCsv, 'penetration');
+    const reductionData = parseCsv(reductionCsv, 'reduction');
+    const allData = [...penetrationData, ...reductionData];
+
+         allData.forEach(item => {
+         if(item.name === '明智吾郎') item.role = '辅助'; 
+         if (!['启示', '面具技能'].includes(item.role)) {
+             if (!characterDb[item.name]) {
+                 characterDb[item.name] = { role: item.role, buffs: [], imageUrl: `https://placehold.co/64x64/333/FFF?text=${item.name.charAt(0)}` };
+             }
+             characterDb[item.name].buffs.push(item);
+         }
+     });
+     
+     // 修正角色分类
+     if(characterDb['富山佳代']) characterDb['富山佳代'].role = '解明';
+    characterDb['wonder'] = { 
+        role: 'WONDER', 
+        buffs: allData.filter(item => item.name === 'wonder' || item.role === 'WONDER' || item.role === '面具技能'),
+        imageUrl: './samples/spine/wonder.webp'
+    };
+
+         const newCharacters = {
+         '主C': ['佐原海夕·夏日', '李瑶玲太平乐', '芳泽霞', '新井素羽·夏日', 'YUI', '雨宫莲', '高卷杏', '琴音蒙塔涅漫舞','坂本龙司', '北里基良', '须见俊也'],
+         '辅助': ['多祢村理子·未央', '路菲尔', '摩尔加纳', '长尾千津子', '神山岭央', '野毛朋子', '黑谷清', '白鸟诚司', '藤川雪实','坂井绫香', '西森阳菜'],
+         '解明': ['椎名悠美', '富山佳代', '佐原海夕']
+     };
+
+    for (const [role, names] of Object.entries(newCharacters)) {
+        names.forEach(name => {
+            if (!characterDb[name]) {
+                characterDb[name] = { role, buffs: [], imageUrl: `https://placehold.co/64x64/333/FFF?text=${name.charAt(0)}` };
+            }
+        });
+    }
+
+    if(characterDb['长尾爱歌']) characterDb['长尾爱歌'].imageUrl = './samples/spine/长尾爱歌.webp';
+    if(characterDb['佐仓双叶']) characterDb['佐仓双叶'].imageUrl = './samples/spine/佐仓双叶.webp';
+    if(characterDb['多祢村理子']) characterDb['多祢村理子'].imageUrl = './samples/spine/多祢村理子.webp';
+    if(characterDb['鹿野莓']) characterDb['鹿野莓'].imageUrl = './samples/spine/鹿野莓.webp';
+    if(characterDb['真田明彦']) characterDb['真田明彦'].imageUrl = './samples/spine/真田明彦.webp';
+    if(characterDb['结城理']) characterDb['结城理'].imageUrl = './samples/spine/结城理.webp';
+    if(characterDb['明智吾郎']) characterDb['明智吾郎'].imageUrl = './samples/spine/明智吾郎.webp';
+    if(characterDb['喜多川祐介']) characterDb['喜多川祐介'].imageUrl = './samples/spine/喜多川祐介.webp';
+    if(characterDb['新岛真']) characterDb['新岛真'].imageUrl = './samples/spine/新岛真.webp';
+    if(characterDb['奥村春']) characterDb['奥村春'].imageUrl = './samples/spine/奥村春.webp';
+    if(characterDb['琴音蒙塔涅']) characterDb['琴音蒙塔涅'].imageUrl = './samples/spine/琴音蒙塔涅.webp';
+    if(characterDb['坂本龙司']) characterDb['坂本龙司'].imageUrl = './samples/spine/坂本龙司.webp';
+    if(characterDb['北里基良']) characterDb['北里基良'].imageUrl = './samples/spine/北里基良.webp';
+    if(characterDb['岳羽由加莉']) characterDb['岳羽由加莉'].imageUrl = './samples/spine/岳羽由加莉.webp';
+    if(characterDb['桥本麻由美']) characterDb['桥本麻由美'].imageUrl = './samples/spine/桥本麻由美.webp';
+    if(characterDb['池波星辉']) characterDb['池波星辉'].imageUrl = './samples/spine/池波星辉.webp';
+    if(characterDb['宫下美波']) characterDb['宫下美波'].imageUrl = './samples/spine/宫下美波.webp';
+    if(characterDb['芦谷真咲']) characterDb['芦谷真咲'].imageUrl = './samples/spine/芦谷真咲.webp';
+    if(characterDb['富山佳代']) characterDb['富山佳代'].imageUrl = './samples/spine/富山佳代.webp';
+    if(characterDb['宫下美波·夏日']) characterDb['宫下美波·夏日'].imageUrl = './samples/spine/宫下美波夏日.webp';
+    if(characterDb['夏川澪']) characterDb['夏川澪'].imageUrl = './samples/spine/夏川澪.webp';
+    if(characterDb['野毛朋子·夏日']) characterDb['野毛朋子·夏日'].imageUrl = './samples/spine/野毛朋子夏日.webp';
+    if(characterDb['道玄坂琉七']) characterDb['道玄坂琉七'].imageUrl = './samples/spine/道玄坂琉七.webp';
+    if(characterDb['李瑶玲']) characterDb['李瑶玲'].imageUrl = './samples/spine/李瑶玲.webp';
+    if(characterDb['加纳俊']) characterDb['加纳俊'].imageUrl = './samples/spine/加纳俊.webp';
+    if(characterDb['坂井绫香']) characterDb['坂井绫香'].imageUrl = './samples/spine/坂井绫香.webp';
+         if(characterDb['佐原海夕·夏日']) characterDb['佐原海夕·夏日'].imageUrl = './samples/spine/佐原海夕夏日.webp';
+     if(characterDb['佐原海夕']) characterDb['佐原海夕'].imageUrl = './samples/spine/佐原海夕.webp';
+    if(characterDb['李瑶玲太平乐']) characterDb['李瑶玲太平乐'].imageUrl = './samples/spine/李瑶玲太平乐.webp';
+    if(characterDb['芳泽霞']) characterDb['芳泽霞'].imageUrl = './samples/spine/芳泽霞.webp';
+    if(characterDb['新井素羽·夏日']) characterDb['新井素羽·夏日'].imageUrl = './samples/spine/新井素羽夏日.webp';
+    if(characterDb['YUI']) characterDb['YUI'].imageUrl = './samples/spine/YUI.webp';
+    if(characterDb['雨宫莲']) characterDb['雨宫莲'].imageUrl = './samples/spine/雨宫莲.webp';
+    if(characterDb['高卷杏']) characterDb['高卷杏'].imageUrl = './samples/spine/高卷杏.webp';
+    if(characterDb['多祢村理子·未央']) characterDb['多祢村理子·未央'].imageUrl = './samples/spine/多祢村理子未央.webp';
+    if(characterDb['路菲尔']) characterDb['路菲尔'].imageUrl = './samples/spine/路菲尔.webp';
+    if(characterDb['摩尔加纳']) characterDb['摩尔加纳'].imageUrl = './samples/spine/摩尔加纳.webp';
+    if(characterDb['长尾千津子']) characterDb['长尾千津子'].imageUrl = './samples/spine/长尾千津子.webp';
+    if(characterDb['神山岭央']) characterDb['神山岭央'].imageUrl = './samples/spine/神山岭央.webp';
+    if(characterDb['椎名悠美']) characterDb['椎名悠美'].imageUrl = './samples/spine/椎名悠美.webp';
+    if(characterDb['琴音蒙塔涅漫舞']) characterDb['琴音蒙塔涅漫舞'].imageUrl = './samples/spine/琴音蒙塔涅漫舞.webp';
+    if(characterDb['野毛朋子']) characterDb['野毛朋子'].imageUrl = './samples/spine/野毛朋子.webp';
+    if(characterDb['黑谷清']) characterDb['黑谷清'].imageUrl = './samples/spine/黑谷清.webp';
+    if(characterDb['须见俊也']) characterDb['须见俊也'].imageUrl = './samples/spine/须见俊也.webp';
+    if(characterDb['白鸟诚司']) characterDb['白鸟诚司'].imageUrl = './samples/spine/白鸟诚司.webp';
+    if(characterDb['藤川雪实']) characterDb['藤川雪实'].imageUrl = './samples/spine/藤川雪实.webp';
+    if(characterDb['西森阳菜']) characterDb['西森阳菜'].imageUrl = './samples/spine/西森阳菜.webp';
+
+    characters = Object.keys(characterDb).sort();
+    enlightenmentChars = characters.filter(name => characterDb[name].role === '解明').sort();
+    mainDpsChars = characters.filter(name => characterDb[name].role === '主C').sort();
+    supportChars = characters.filter(name => characterDb[name].role === '辅助' && name !== 'wonder').sort();
+
+    const hopeDuty = { id: 'rev-hope', role: '启示', name: '职责希望', source: '职责希望', value: 5, consciousness: '0', duration: '1', type: 'penetration' };
+    if (characterDb['长尾爱歌']) characterDb['长尾爱歌'].buffs.push(hopeDuty);
+    if (characterDb['多祢村理子']) characterDb['多祢村理子'].buffs.push(hopeDuty);
+
+    const resolveDuty = { id: 'rev-resolve', role: '启示', name: '职责决心', source: '职责决心', value: 10, consciousness: '0', duration: '2', type: 'reduction' };
+    if (characterDb['佐仓双叶']) characterDb['佐仓双叶'].buffs.push(resolveDuty);
+
+         const sovereignDeparture = { id: 'rev-sovereign', role: '启示', name: '主权启程', source: '主权启程', value: 23, consciousness: '0', duration: '2', type: 'reduction' };
+     
+     // 只有辅助角色才获得启程主权buff
+     supportChars.forEach(name => {
+         if (characterDb[name] && characterDb[name].role === '辅助') {
+             characterDb[name].buffs.push(sovereignDeparture);
+         }
+     });
+    
+    allBuffs = [];
+    Object.values(characterDb).forEach(char => allBuffs.push(...char.buffs));
+    allBuffs = [...new Set(allBuffs)];
+}
+
+
+// --- UI CREATION ---
+function createCharacterSlots() {
+    const wonderContainer = document.getElementById('wonder-container');
+    const teamContainer = document.getElementById('team-container');
+    const enlightenmentContainer = document.getElementById('enlightenment-container');
+    
+    wonderContainer.innerHTML = '';
+    teamContainer.innerHTML = '';
+    enlightenmentContainer.innerHTML = '';
+    
+    wonderContainer.appendChild(createCharacterCard(1, 'wonder'));
+    teamContainer.appendChild(createCharacterCard(2, 'mainDps'));
+    teamContainer.appendChild(createCharacterCard(3, 'support'));
+    teamContainer.appendChild(createCharacterCard(4, 'support'));
+    enlightenmentContainer.appendChild(createCharacterCard(5, 'enlightenment'));
+}
+
+function createCharacterCard(id, roleType) {
+    const card = document.createElement('div');
+    card.className = `character-card`;
+    card.dataset.cardId = id;
+    if (roleType === 'wonder') {
+        card.classList.add('is-wonder');
+    }
+
+    let charSelectorHTML = '';
+    let consciousnessHTML = '';
+    let extraHTML = '';
+    
+    if (roleType === 'wonder') {
+        charSelectorHTML = `
+            <div class="char-selector-wrapper flex-grow">
+                <label>角色选择</label>
+                <select id="char-select-${id}" class="char-select" data-card-id="${id}" disabled><option value="wonder">wonder (主角)</option></select>
+            </div>`;
+    } else {
+        let charList;
+        if (roleType === 'mainDps') charList = mainDpsChars;
+        else if (roleType === 'support') charList = supportChars;
+        else if (roleType === 'enlightenment') charList = enlightenmentChars;
+
+        const charOptions = ['无', ...charList].map(name => `<option value="${name}">${name}</option>`).join('');
+        let labelText = '角色选择';
+        if (roleType === 'mainDps') labelText = 'C位选择';
+        else if (roleType === 'support') labelText = '辅助选择';
+        else if (roleType === 'enlightenment') labelText = '解明选择';
+        
+        charSelectorHTML = `
+            <div class="char-selector-wrapper">
+                <label>${labelText}</label>
+                <select id="char-select-${id}" class="char-select" data-card-id="${id}">${charOptions}</select>
+            </div>`;
+        consciousnessHTML = `
+            <div class="consciousness-wrapper">
+                <label>意识</label>
+                <select id="consciousness-select-${id}" class="consciousness-select" data-card-id="${id}">${Array.from({length: 7}, (_, i) => `<option value="${i}">${i}</option>`).join('')}</select>
+            </div>`;
+    }
+
+    if (roleType === 'mainDps' || roleType === 'enlightenment') {
+        extraHTML = `
+            <div class="penetration-wrapper">
+                <label>启示穿透(%)</label>
+                <input type="number" id="manual-penetration-${id}" class="manual-penetration" value="0" min="0">
+            </div>`;
+    }
+
+    const hasExtra = (roleType === 'mainDps' || roleType === 'enlightenment');
+    const gridColsClass = hasExtra ? 'md:grid-cols-3' : 'md:grid-cols-2';
+
+    const topRowHTML = (roleType === 'wonder') ? `
+        <div class="flex items-end gap-4">
+            <img id="avatar-${id}" class="character-avatar" src="https://placehold.co/64x64/333/555?text=?" alt="avatar">
+            ${charSelectorHTML}
+        </div>
+    ` : `
+        <div class="flex items-end gap-4">
+            <img id="avatar-${id}" class="character-avatar" src="https://placehold.co/64x64/333/555?text=?" alt="avatar">
+            <div class="grid grid-cols-1 ${gridColsClass} gap-2 flex-grow">
+                ${charSelectorHTML}
+                ${consciousnessHTML}
+                ${extraHTML}
+            </div>
+        </div>
+    `;
+
+    card.innerHTML = `
+        ${topRowHTML}
+        <div id="buff-list-${id}" class="buff-list"></div>
+    `;
+
+    return card;
+}
+
+function updateCharacterAvatar(cardId) {
+    const charName = document.getElementById(`char-select-${cardId}`).value;
+    const avatarImg = document.getElementById(`avatar-${cardId}`);
+    if (charName !== '无' && characterDb[charName] && characterDb[charName].imageUrl) {
+        avatarImg.src = characterDb[charName].imageUrl;
+    } else {
+        avatarImg.src = 'https://placehold.co/64x64/333/555?text=?';
+    }
+}
+
+function loadRecommendedTeam(mainCName) {
+    if (!recommendedTeams[mainCName]) return;
+    
+    const team = recommendedTeams[mainCName];
+    
+    if (team.support && team.support.length > 0) {
+        if (team.support[0]) {
+            const support1Select = document.getElementById('char-select-3');
+            if (support1Select) {
+                support1Select.value = team.support[0];
+                populateBuffs(3);
+                updateCharacterAvatar(3);
+                setSovereignDepartureCheckbox(3);
+            }
+        }
+        
+        if (team.support[1]) {
+            const support2Select = document.getElementById('char-select-4');
+            if (support2Select) {
+                support2Select.value = team.support[1];
+                populateBuffs(4);
+                updateCharacterAvatar(4);
+                setSovereignDepartureCheckbox(4);
+            }
+        }
+    }
+    
+    if (team.enlightenment) {
+        const enlightenmentSelect = document.getElementById('char-select-5');
+        if (enlightenmentSelect) {
+            enlightenmentSelect.value = team.enlightenment;
+            populateBuffs(5);
+            updateCharacterAvatar(5);
+        }
+    }
+    
+    calculateTotals();
+}
+
+ function setSovereignDepartureCheckbox(cardId) {
+     const charName = document.getElementById(`char-select-${cardId}`).value;
+     const buffList = document.getElementById(`buff-list-${cardId}`);
+     
+     if (buffList) {
+         const sovereignCheckbox = buffList.querySelector('input[data-buff-id*="rev-sovereign"]');
+         if (sovereignCheckbox) {
+             // 只有特定角色默认勾选启程主权
+             const defaultCheckedRoles = ['加纳俊', '长尾千津子', '宫下美波·夏日'];
+             sovereignCheckbox.checked = defaultCheckedRoles.includes(charName);
+         }
+     }
+ }
+
+function populateBuffs(cardId) {
+    const charName = document.getElementById(`char-select-${cardId}`).value;
+    const consciousnessSelect = document.getElementById(`consciousness-select-${cardId}`);
+    const consciousnessLevel = consciousnessSelect ? parseInt(consciousnessSelect.value) : 99;
+    const buffListContainer = document.getElementById(`buff-list-${cardId}`);
+    buffListContainer.innerHTML = '';
+    
+    if (charName === '无' || !characterDb[charName]) return;
+
+    const availableBuffs = [...characterDb[charName].buffs]
+        .filter(buff => consciousnessLevel >= parseInt(buff.consciousness))
+        .sort((a, b) => a.source.localeCompare(b.source));
+    
+    if (charName === 'wonder') {
+        buffListContainer.className = 'buff-list wonder-buff-grid';
+        const weaponsCol = document.createElement('div');
+        weaponsCol.className = 'buff-column';
+        weaponsCol.innerHTML = '<h3>武器 (减防)</h3>';
+        const weaponGrid = document.createElement('div');
+        weaponGrid.className = 'persona-grid';
+        weaponsCol.appendChild(weaponGrid);
+        
+        const personasCol = document.createElement('div');
+        personasCol.className = 'buff-column';
+        personasCol.innerHTML = '<h3>人格面具 (减防)</h3>';
+        const personaGrid = document.createElement('div');
+        personaGrid.className = 'persona-grid';
+        personasCol.appendChild(personaGrid);
+
+        availableBuffs.forEach(buff => {
+            const isWeapon = buff.source.includes('刀');
+            const targetCol = isWeapon ? weaponGrid : personaGrid;
+            const buffItem = createBuffItem(buff, isWeapon, false);
+            targetCol.appendChild(buffItem);
+        });
+
+        buffListContainer.appendChild(weaponsCol);
+        buffListContainer.appendChild(personasCol);
+
+    } else {
+        buffListContainer.className = 'buff-list';
+        availableBuffs.forEach(buff => {
+            const buffItem = createBuffItem(buff, false, true);
+            buffListContainer.appendChild(buffItem);
+        });
+    }
+}
+
+function createBuffItem(buff, isWeapon, isChecked = true) {
+    const buffTypeLabel = buff.type === 'penetration' ? '穿透' : '减防';
+    const buffTypeClass = buff.type === 'penetration' ? 'buff-type-penetration' : 'buff-type-reduction';
+    
+    const buffItem = document.createElement('div');
+    buffItem.className = 'buff-item';
+    const weaponClass = isWeapon ? 'weapon-checkbox' : '';
+    let checkedAttr = isChecked ? 'checked' : '';
+    if (buff.source === '主权启程') {
+       checkedAttr = '';
+    }
+    
+    const durationText = (buff.duration && !isNaN(buff.duration)) ? `${buff.duration}回合` : '永续';
+    
+    buffItem.innerHTML = `
+        <input type="checkbox" id="buff-${buff.id}" data-buff-id="${buff.id}" class="buff-checkbox ${weaponClass}" ${checkedAttr}>
+        <span class="buff-type ${buffTypeClass}">${buffTypeLabel}</span>
+        <label for="buff-${buff.id}" title="${buff.source}">${buff.source}</label>
+        <input type="number" class="buff-value-input" value="${buff.value.toFixed(1)}" step="0.1">
+        <span class="duration-display">${durationText}</span>
+    `;
+    return buffItem;
+}
+
+function setupBossSelector() {
+    const select = document.getElementById('boss-select');
+    let html = '';
+    Object.keys(bosses).forEach(name => {
+        html += `<option value="${name}">${name}</option>`;
+    });
+    select.innerHTML = html;
+    select.addEventListener('change', (e) => {
+        const bossName = e.target.value;
+        if (bosses[bossName]) {
+            document.getElementById('boss-def').value = bosses[bossName].def;
+            document.getElementById('boss-def-coeff').value = bosses[bossName].coeff;
+        }
+        calculateTotals();
+    });
+}
+
+// --- EVENT HANDLING ---
+function addEventListeners() {
+    document.body.addEventListener('change', (e) => {
+        if (e.target.matches('input, select')) {
+            if (e.target.classList.contains('char-select') || e.target.classList.contains('consciousness-select')) {
+                const cardId = e.target.dataset.cardId;
+                populateBuffs(cardId);
+                updateCharacterAvatar(cardId);
+                
+                                 if (cardId === '2' && e.target.value !== '无') {
+                     loadRecommendedTeam(e.target.value);
+                 }
+                 
+                 // 设置启程主权的勾选状态
+                 if (cardId >= 3 && cardId <= 5) {
+                     setSovereignDepartureCheckbox(cardId);
+                 }
+            }
+             if (e.target.classList.contains('weapon-checkbox') && e.target.checked) {
+                const weaponContainer = e.target.closest('.buff-column');
+                weaponContainer.querySelectorAll('.weapon-checkbox').forEach(otherCheckbox => {
+                    if (otherCheckbox !== e.target) otherCheckbox.checked = false;
+                });
+            }
+            calculateTotals();
+        }
+    });
+
+    document.body.addEventListener('input', (e) => {
+        if (e.target.matches('input[type="number"]')) {
+            calculateTotals();
+        }
+    });
+}
+
+// --- CALCULATION LOGIC ---
+function calculateTotals() {
+    let totalPenetration = 0;
+    let totalReduction = 0;
+
+    document.querySelectorAll('.buff-checkbox:checked').forEach(checkbox => {
+        const buffId = checkbox.dataset.buffId;
+        const buff = allBuffs.find(b => b.id === buffId);
+        
+        if (buff) {
+            const value = parseFloat(checkbox.closest('.buff-item').querySelector('.buff-value-input').value) || 0;
+            if (buff.type === 'penetration') totalPenetration += value;
+            else if (buff.type === 'reduction') totalReduction += value;
+        }
+    });
+    
+    document.querySelectorAll('.manual-penetration').forEach(input => {
+        totalPenetration += parseFloat(input.value) || 0;
+    });
+
+    document.getElementById('total-penetration').textContent = `${totalPenetration.toFixed(1)}%`;
+    document.getElementById('total-reduction').textContent = `${totalReduction.toFixed(1)}%`;
+    
+    calculateNeededValues(totalPenetration, totalReduction);
+}
+
+function calculateNeededValues(penetration, reduction) {
+    const baseCoeff = parseFloat(document.getElementById('boss-def-coeff').value) / 100;
+    const currentPen = penetration / 100;
+    const currentRed = reduction / 100;
+    const finalCoeff = (baseCoeff * (1 - currentPen)) - currentRed;
+
+    let damageIncrease = 0;
+    if (finalCoeff <= 0) {
+        damageIncrease = baseCoeff * 100;
+    } else {
+        damageIncrease = ((1 + baseCoeff) / (1 + finalCoeff) - 1) * 100;
+    }
+    document.getElementById('damage-increase').textContent = `${damageIncrease.toFixed(1)}%`;
+
+    if (finalCoeff <= 0) {
+        document.getElementById('needed-penetration').textContent = '0.0%';
+        document.getElementById('needed-reduction').textContent = '0.0%';
+        return;
+    }
+
+    const neededReduction = finalCoeff * 100;
+    const neededPenetration = (finalCoeff / baseCoeff) * 100;
+
+    document.getElementById('needed-penetration').textContent = `${neededPenetration > 0 ? neededPenetration.toFixed(1) : '0.0'}%`;
+    document.getElementById('needed-reduction').textContent = `${neededReduction > 0 ? neededReduction.toFixed(1) : '0.0'}%`;
+}
+
+// --- INITIALIZATION ---
+document.addEventListener('DOMContentLoaded', () => {
+    setupData();
+    setupBossSelector();
+    createCharacterSlots();
+    addEventListeners();
+    
+    document.querySelectorAll('.character-card').forEach(card => {
+        const cardId = card.dataset.cardId;
+        populateBuffs(cardId);
+        updateCharacterAvatar(cardId);
+    });
+
+         const mainCSelect = document.getElementById('char-select-2');
+     if (mainCSelect) {
+         mainCSelect.value = '佐原海夕·夏日';
+         populateBuffs(2);
+         updateCharacterAvatar(2);
+         loadRecommendedTeam('佐原海夕·夏日');
+     }
+     
+     // 初始化时设置所有角色的启程主权状态
+     for (let i = 1; i <= 5; i++) {
+         if (i !== 2) { // 跳过C位，因为还没有选择角色
+             setSovereignDepartureCheckbox(i);
+         }
+     }
+     
+     calculateTotals();
+    
+    addLoadingAnimations();
+});
+
+function addLoadingAnimations() {
+    const elements = document.querySelectorAll('.card, .character-card');
+    elements.forEach((el, index) => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            el.style.transition = 'all 0.6s ease';
+            el.style.opacity = '1';
+            el.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+}
+</script>
+</body>
+</html>

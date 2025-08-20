@@ -1,0 +1,23 @@
+# 忽略所有文件和目录
+*
+
+# 不忽略 .gitignore 文件本身
+!.gitignore
+
+# 不忽略 index.html
+!index.html
+
+# 不忽略 samples 目录
+!samples/
+
+# 忽略 samples 目录下的所有内容
+samples/*
+
+# 不忽略 samples/spine 目录
+!samples/spine/
+
+# 不忽略 samples/spine 目录下的所有文件
+!samples/spine/**
+
+# 不忽略 README.md（可选，用于仓库说明）
+!README.md
