@@ -466,6 +466,10 @@
         .buff-type-reduction {
             background-color: var(--coral-pink);
         }
+        .buff-type-crit-rate {
+            background-color: var(--warm-yellow);
+            color: #000;
+        }
         
         /* Section Title Styling */
         .card h2 {
@@ -583,7 +587,7 @@
     </div>
 
     <div class="card mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div class="result-display">
                 <div id="total-penetration" class="value">0.0%</div>
                 <div class="label">穿透总和</div>
@@ -593,10 +597,15 @@
                 <div class="label">减防总和</div>
             </div>
             <div class="result-display">
+                <div id="total-crit-rate" class="value text-yellow-400">0.0%</div>
+                <div class="label">暴击率总和</div>
+            </div>
+            <div class="result-display">
                 <div id="damage-increase" class="value text-green-400">0.0%</div>
                 <div class="label">等效最终增伤</div>
             </div>
         </div>
+        <div id="special-effects-display" class="mb-2 text-sm text-[#9ecbff]"></div>
         <div class="needed-values-display">
             <p>离防御系数为0，还需要：</p>
             <div class="needed-values">
@@ -610,6 +619,10 @@
         <p>提示：所有默认数值基于满级技能（10级技能+5级心象）。您可以直接在文本框中修改以匹配您的实际情况。</p>
         
         <div id="wonder-container" class="mb-6"></div>
+        <div id="global-buffs-container" class="mb-4 p-4 rounded-xl border border-[#ffffff22] bg-[#ffffff08]">
+            <h3 class="text-lg font-semibold mb-3">全局加成</h3>
+            <div id="global-buffs-list" class="buff-list"></div>
+        </div>
         <div id="team-container" class="team-grid"></div>
         
         <h2>解明位</h2>
@@ -626,7 +639,9 @@ const penetrationCsv = `,,,穿透,需要意识,持续时间
 辅助,桥本麻由美,3技能（主目标）,10.8,,1
 ,,3级急速状态,15,,-
 ,,3技能（主目标）,10,意识1,1
-,,3技能（群体）,5.4,,1
+,,3技能（群体）,5.4,,2
+,,3技能（主目标）,11.4,意识6,1
+,,3技能（群体）,5.6,意识6,2
 辅助,池波星辉,3技能,13.7,,2
 辅助,宫下美波,意识1,20,意识1,2
 辅助,芦谷真咲,意识1,15,意识1,
@@ -683,7 +698,31 @@ const reductionCsv = `,,,减防,需要意识,持续时间
 ,,专武0改（受击）,30,,1
 辅助,片山久未,重创,53.8,,1
 ,,highlight,32.3,,
-,,核心意识,40,,2`;
+,,核心意识,40,,2
+辅助,桐条美鹤,绚烂冰华,64.6,,2
+,,绚烂冰华,90.4,意识1,2
+,,绚烂冰华,109,意识6,2
+,,女王凝视,43,,2
+,,女王凝视,43,意识1,2
+,,女王凝视,45.4,意识6,2`;
+
+const critRateCsv = `,,,暴击率,需要意识,持续时间
+,基础,基础暴击率,5,,,
+,我的宫殿,我的宫殿,1,,,
+,状态,触电,10,,,
+,wonder,反叛,15.7,,,
+,wonder,革命,10.9,,,
+辅助,桐条美鹤,寒霜洁,10,意识1,
+解明,山岸风花,意识1,12,意识1,
+辅助,宫下美波·夏日,技能3,17.2,,3
+解明,长尾爱歌,意识1,12,意识1,
+辅助,多祢村理子·未央,意识1,17,意识1,
+辅助,坂井绫香,意识1,15,意识1,
+解明,佐仓双叶,意识1,12,意识1,
+主C,YUI,技能3,12,,3
+主C,幻彩YUI,2技能,12.9,,2
+, ,专武0改造,18.1,,2
+辅助,芦谷真咲,意识6,15,意识6,`;
 
 // --- GLOBAL VARIABLES ---
 let characterDb = {};
@@ -709,6 +748,7 @@ const recommendedTeams = {
     '芳泽霞': { support: ['坂井绫香', '宫下美波·夏日'], enlightenment: '长尾爱歌' },
     '新井素羽·夏日': { support: ['宫下美波', '多祢村理子·未央'], enlightenment: '长尾爱歌' },
     'YUI': { support: ['夏川澪', '宫下美波·夏日'], enlightenment: '长尾爱歌' },
+    '幻彩YUI': { support: ['桐条美鹤', '宫下美波·夏日'], enlightenment: '长尾爱歌' },
     '雨宫莲': { support: ['桥本麻由美', '多祢村理子·未央'], enlightenment: '长尾爱歌' },
     '高卷杏': { support: ['多祢村理子·未央', '夏川澪'], enlightenment: '长尾爱歌' },
     '琴音蒙塔涅漫舞': { support: ['宫下美波·夏日', '多祢村理子·未央'], enlightenment: '长尾爱歌' },
@@ -747,7 +787,10 @@ function parseCsv(csvString, type) {
         const consciousness = columns[4] && columns[4].trim().replace(/意识/g, '') !== '' ? columns[4].trim().replace(/意识/g, '') : '0';
         const duration = columns[5] ? columns[5].trim() : '';
         if (!role && name === 'wonder') role = 'WONDER';
-        if ((role || name === 'wonder' || role === '面具技能' || role === '启示') && source && !isNaN(value)) {
+        // 处理全局buff（基础、我的宫殿、状态）
+        if ((name === '基础' || name === '我的宫殿' || name === '状态') && source && !isNaN(value)) {
+            data.push({ id: `${type}-${index}`, role: role || '全局', name: name, source, value, consciousness, duration, type });
+        } else if ((role || name === 'wonder' || role === '面具技能' || role === '启示') && source && !isNaN(value)) {
             data.push({ id: `${type}-${index}`, role: (role || 'WONDER').toUpperCase(), name: name || role, source, value, consciousness, duration, type });
         }
         currentRole = role;
@@ -759,13 +802,26 @@ function parseCsv(csvString, type) {
 function setupData() {
     const penetrationData = parseCsv(penetrationCsv, 'penetration');
     const reductionData = parseCsv(reductionCsv, 'reduction');
-    const allData = [...penetrationData, ...reductionData];
+    const critRateData = parseCsv(critRateCsv, 'critRate');
+    const allData = [...penetrationData, ...reductionData, ...critRateData];
 
          allData.forEach(item => {
          if(item.name === '明智吾郎') item.role = '辅助'; 
-         if (!['启示', '面具技能'].includes(item.role)) {
+         // 处理全局buff（基础、我的宫殿、状态）和wonder的面具技能
+         if (item.name === '基础' || item.name === '我的宫殿' || item.name === '状态') {
              if (!characterDb[item.name]) {
-                 characterDb[item.name] = { role: item.role, buffs: [], imageUrl: `https://placehold.co/64x64/333/FFF?text=${item.name.charAt(0)}` };
+                 characterDb[item.name] = { role: '全局', buffs: [], imageUrl: '' };
+             }
+             characterDb[item.name].buffs.push(item);
+         } else if (item.name === '反叛' || item.name === '革命') {
+             // wonder的人格面具技能
+             if (!characterDb['wonder']) {
+                 characterDb['wonder'] = { role: 'WONDER', buffs: [], imageUrl: './samples/spine/Wonder.webp' };
+             }
+             characterDb['wonder'].buffs.push(item);
+         } else if (!['启示', '面具技能'].includes(item.role)) {
+             if (!characterDb[item.name]) {
+                 characterDb[item.name] = { role: item.role, buffs: [], imageUrl: './samples/spine/Wonder.webp' };
              }
              characterDb[item.name].buffs.push(item);
          }
@@ -773,22 +829,41 @@ function setupData() {
      
      // 修正角色分类
      if(characterDb['富山佳代']) characterDb['富山佳代'].role = '解明';
-    characterDb['wonder'] = { 
-        role: 'WONDER', 
-        buffs: allData.filter(item => item.name === 'wonder' || item.role === 'WONDER' || item.role === '面具技能'),
-        imageUrl: './samples/spine/Wonder.webp'
-    };
+    // 确保wonder对象存在
+    if (!characterDb['wonder']) {
+        characterDb['wonder'] = { 
+            role: 'WONDER', 
+            buffs: allData.filter(item => (item.name === 'wonder' || item.role === 'WONDER' || item.role === '面具技能') && item.name !== '反叛' && item.name !== '革命'),
+            imageUrl: './samples/spine/Wonder.webp'
+        };
+    } else {
+        // 合并wonder的buff（排除已经在上面添加的反叛和革命）
+        const wonderBuffs = allData.filter(item => (item.name === 'wonder' || item.role === 'WONDER' || item.role === '面具技能') && item.name !== '反叛' && item.name !== '革命');
+        // 避免重复添加
+        const existingBuffIds = new Set(characterDb['wonder'].buffs.map(b => b.id));
+        wonderBuffs.forEach(buff => {
+            if (!existingBuffIds.has(buff.id)) {
+                characterDb['wonder'].buffs.push(buff);
+            }
+        });
+    }
 
-         const newCharacters = {
-         '主C': ['佐原海夕·夏日', '李瑶玲太平乐', '芳泽霞', '新井素羽·夏日', 'YUI', '雨宫莲', '高卷杏', '琴音蒙塔涅漫舞','坂本龙司', '北里基良', '须见俊也'],
-         '辅助': ['多祢村理子·未央', '路菲尔', '摩尔加纳', '长尾千津子', '神山岭央', '野毛朋子', '黑谷清', '白鸟诚司', '藤川雪实','坂井绫香', '西森阳菜'],
-         '解明': ['椎名悠美', '富山佳代', '佐原海夕']
+    // 将 newCharacters 定义为全局变量，以便在其他函数中使用
+    window.newCharacters = {
+         '主C': ['佐原海夕·夏日', '李瑶玲太平乐', '芳泽霞', '新井素羽·夏日', 'YUI', '幻彩YUI', '雨宫莲', '高卷杏', '琴音蒙塔涅漫舞','坂本龙司', '北里基良', '须见俊也'],
+         '辅助': ['多祢村理子·未央', '路菲尔', '摩尔加纳', '长尾千津子', '神山岭央', '野毛朋子', '黑谷清', '白鸟诚司', '藤川雪实','坂井绫香', '西森阳菜', '桐条美鹤'],
+         '解明': ['椎名悠美', '富山佳代', '佐原海夕', '山岸风花']
      };
+    
+    const newCharacters = window.newCharacters;
 
     for (const [role, names] of Object.entries(newCharacters)) {
         names.forEach(name => {
             if (!characterDb[name]) {
                 characterDb[name] = { role, buffs: [], imageUrl: `https://placehold.co/64x64/333/FFF?text=${name.charAt(0)}` };
+            } else {
+                // 确保角色的 role 属性正确设置
+                characterDb[name].role = role;
             }
         });
     }
@@ -841,6 +916,9 @@ function setupData() {
     if(characterDb['白鸟诚司']) characterDb['白鸟诚司'].imageUrl = './samples/spine/白鸟诚司.webp';
     if(characterDb['藤川雪实']) characterDb['藤川雪实'].imageUrl = './samples/spine/藤川雪实.webp';
     if(characterDb['西森阳菜']) characterDb['西森阳菜'].imageUrl = './samples/spine/西森阳菜.webp';
+    if(characterDb['桐条美鹤']) characterDb['桐条美鹤'].imageUrl = './samples/spine/桐条美鹤.webp';
+    if(characterDb['山岸风花']) characterDb['山岸风花'].imageUrl = './samples/spine/山岸风花.webp';
+    if(characterDb['幻彩YUI']) characterDb['幻彩YUI'].imageUrl = './samples/spine/幻彩YUI.webp';
 
     characters = Object.keys(characterDb).sort();
     enlightenmentChars = characters.filter(name => characterDb[name].role === '解明').sort();
@@ -850,6 +928,7 @@ function setupData() {
     const hopeDuty = { id: 'rev-hope', role: '启示', name: '职责希望', source: '职责希望', value: 5, consciousness: '0', duration: '1', type: 'penetration' };
     if (characterDb['长尾爱歌']) characterDb['长尾爱歌'].buffs.push(hopeDuty);
     if (characterDb['多祢村理子']) characterDb['多祢村理子'].buffs.push(hopeDuty);
+    if (characterDb['山岸风花']) characterDb['山岸风花'].buffs.push(hopeDuty);
 
     const resolveDuty = { id: 'rev-resolve', role: '启示', name: '职责决心', source: '职责决心', value: 10, consciousness: '0', duration: '2', type: 'reduction' };
     if (characterDb['佐仓双叶']) characterDb['佐仓双叶'].buffs.push(resolveDuty);
@@ -874,16 +953,62 @@ function createCharacterSlots() {
     const wonderContainer = document.getElementById('wonder-container');
     const teamContainer = document.getElementById('team-container');
     const enlightenmentContainer = document.getElementById('enlightenment-container');
+    const globalBuffsContainer = document.getElementById('global-buffs-list');
     
     wonderContainer.innerHTML = '';
     teamContainer.innerHTML = '';
     enlightenmentContainer.innerHTML = '';
+    if (globalBuffsContainer) globalBuffsContainer.innerHTML = '';
     
     wonderContainer.appendChild(createCharacterCard(1, 'wonder'));
     teamContainer.appendChild(createCharacterCard(2, 'mainDps'));
     teamContainer.appendChild(createCharacterCard(3, 'support'));
     teamContainer.appendChild(createCharacterCard(4, 'support'));
     enlightenmentContainer.appendChild(createCharacterCard(5, 'enlightenment'));
+    
+    // 创建全局buff区域
+    if (globalBuffsContainer) {
+        createGlobalBuffs();
+    }
+    
+    // 注意：不在这里调用updateFuukaExtraSlot，因为此时角色选择可能还没有设置
+    // 将在初始化完成后根据用户的选择来创建额外槽位
+}
+
+// 创建全局buff区域
+function createGlobalBuffs() {
+    const globalBuffsContainer = document.getElementById('global-buffs-list');
+    if (!globalBuffsContainer) return;
+    
+    // 基础暴击率
+    if (characterDb['基础'] && characterDb['基础'].buffs.length > 0) {
+        characterDb['基础'].buffs.forEach(buff => {
+            if (buff.type === 'critRate') {
+                const buffItem = createBuffItem(buff, false, true);
+                globalBuffsContainer.appendChild(buffItem);
+            }
+        });
+    }
+    
+    // 我的宫殿
+    if (characterDb['我的宫殿'] && characterDb['我的宫殿'].buffs.length > 0) {
+        characterDb['我的宫殿'].buffs.forEach(buff => {
+            if (buff.type === 'critRate') {
+                const buffItem = createBuffItem(buff, false, true);
+                globalBuffsContainer.appendChild(buffItem);
+            }
+        });
+    }
+    
+    // 状态（触电）
+    if (characterDb['状态'] && characterDb['状态'].buffs.length > 0) {
+        characterDb['状态'].buffs.forEach(buff => {
+            if (buff.type === 'critRate') {
+                const buffItem = createBuffItem(buff, false, true);
+                globalBuffsContainer.appendChild(buffItem);
+            }
+        });
+    }
 }
 
 function createCharacterCard(id, roleType) {
@@ -909,12 +1034,17 @@ function createCharacterCard(id, roleType) {
         if (roleType === 'mainDps') charList = mainDpsChars;
         else if (roleType === 'support') charList = supportChars;
         else if (roleType === 'enlightenment') charList = enlightenmentChars;
+        else if (roleType === 'fuukaExtra') {
+            // 山岸风花的额外槽位可以选择所有非解明角色（主C + 辅助）
+            charList = [...mainDpsChars, ...supportChars].sort();
+        }
 
         const charOptions = ['无', ...charList].map(name => `<option value="${name}">${name}</option>`).join('');
         let labelText = '角色选择';
         if (roleType === 'mainDps') labelText = 'C位选择';
         else if (roleType === 'support') labelText = '辅助选择';
         else if (roleType === 'enlightenment') labelText = '解明选择';
+        else if (roleType === 'fuukaExtra') labelText = '风花支援角色';
         
         charSelectorHTML = `
             <div class="char-selector-wrapper">
@@ -928,16 +1058,33 @@ function createCharacterCard(id, roleType) {
             </div>`;
     }
 
-    if (roleType === 'mainDps' || roleType === 'enlightenment') {
+    // 主C、解明位和辅助位都需要穿透输入框
+    // 主C位和解明位还需要暴击率输入框
+    if (roleType === 'mainDps' || roleType === 'enlightenment' || roleType === 'support' || roleType === 'fuukaExtra') {
+        let penetrationLabelText = '启示穿透(%)';
+        if (roleType === 'support' || roleType === 'fuukaExtra') {
+            penetrationLabelText = '支援穿透(%)';
+        }
         extraHTML = `
             <div class="penetration-wrapper">
-                <label>启示穿透(%)</label>
+                <label>${penetrationLabelText}</label>
                 <input type="number" id="manual-penetration-${id}" class="manual-penetration" value="0" min="0">
             </div>`;
+        
+        // 主C位和解明位添加暴击率输入框
+        if (roleType === 'mainDps' || roleType === 'enlightenment') {
+            extraHTML += `
+            <div class="crit-rate-wrapper">
+                <label>启示暴击(%)</label>
+                <input type="number" id="manual-crit-rate-${id}" class="manual-crit-rate" value="0" min="0">
+            </div>`;
+        }
     }
 
-    const hasExtra = (roleType === 'mainDps' || roleType === 'enlightenment');
-    const gridColsClass = hasExtra ? 'md:grid-cols-3' : 'md:grid-cols-2';
+    const hasExtra = (roleType === 'mainDps' || roleType === 'enlightenment' || roleType === 'support' || roleType === 'fuukaExtra');
+    // 主C位和解明位有穿透和暴击两个输入框，所以需要4列
+    const hasCritRate = (roleType === 'mainDps' || roleType === 'enlightenment');
+    const gridColsClass = hasCritRate ? 'md:grid-cols-4' : (hasExtra ? 'md:grid-cols-3' : 'md:grid-cols-2');
 
     const topRowHTML = (roleType === 'wonder') ? `
         <div class="flex items-end gap-4">
@@ -955,8 +1102,12 @@ function createCharacterCard(id, roleType) {
         </div>
     `;
 
+    // 只有解明角色才显示fuuka-panel（但现在不再需要，因为用额外槽位代替）
+    // 保留panel结构但默认隐藏，以备将来可能需要
     card.innerHTML = `
         ${topRowHTML}
+        <div id="fuuka-panel-${id}" class="mt-3 p-3 rounded-xl border border-[#ffffff22] bg-[#ffffff08] hidden" style="display: none;">
+        </div>
         <div id="buff-list-${id}" class="buff-list"></div>
     `;
 
@@ -1031,13 +1182,25 @@ function populateBuffs(cardId) {
     const consciousnessSelect = document.getElementById(`consciousness-select-${cardId}`);
     const consciousnessLevel = consciousnessSelect ? parseInt(consciousnessSelect.value) : 99;
     const buffListContainer = document.getElementById(`buff-list-${cardId}`);
+    if (!buffListContainer) {
+        console.error(`populateBuffs: buffListContainer not found for cardId ${cardId}`);
+        return;
+    }
     buffListContainer.innerHTML = '';
     
-    if (charName === '无' || !characterDb[charName]) return;
+    if (charName === '无' || !characterDb[charName]) {
+        if (charName !== '无') {
+            console.warn(`populateBuffs: character "${charName}" not found in characterDb for cardId ${cardId}`);
+        }
+        return;
+    }
 
     const availableBuffs = [...characterDb[charName].buffs]
         .filter(buff => consciousnessLevel >= parseInt(buff.consciousness))
         .sort((a, b) => a.source.localeCompare(b.source));
+    // 山岸风花的额外槽位（cardId=6）直接显示选择角色的buff，不需要特殊处理
+    // 原来的fuuka-panel逻辑已移除，改为使用额外的角色槽位
+    // extraBuffs 不再需要，因为额外槽位已经是独立的角色卡片
     
     if (charName === 'wonder') {
         buffListContainer.className = 'buff-list wonder-buff-grid';
@@ -1050,16 +1213,34 @@ function populateBuffs(cardId) {
         
         const personasCol = document.createElement('div');
         personasCol.className = 'buff-column';
-        personasCol.innerHTML = '<h3>人格面具 (减防)</h3>';
+        personasCol.innerHTML = '<h3>人格面具</h3>';
         const personaGrid = document.createElement('div');
         personaGrid.className = 'persona-grid';
         personasCol.appendChild(personaGrid);
+        
+        // 分离不同类型的buff
+        const reductionBuffs = availableBuffs.filter(b => b.type === 'reduction');
+        const critRateBuffs = availableBuffs.filter(b => b.type === 'critRate');
+        const penetrationBuffs = availableBuffs.filter(b => b.type === 'penetration');
 
-        availableBuffs.forEach(buff => {
+        // 减防buff：武器和人格面具
+        dedupeBySkill(reductionBuffs, consciousnessLevel).forEach(buff => {
             const isWeapon = buff.source.includes('刀');
             const targetCol = isWeapon ? weaponGrid : personaGrid;
             const buffItem = createBuffItem(buff, isWeapon, false);
             targetCol.appendChild(buffItem);
+        });
+        
+        // 暴击率buff添加到人格面具列
+        dedupeBySkill(critRateBuffs, consciousnessLevel).forEach(buff => {
+            const buffItem = createBuffItem(buff, false, false);
+            personaGrid.appendChild(buffItem);
+        });
+        
+        // 穿透buff也添加到人格面具列（如果有）
+        dedupeBySkill(penetrationBuffs, consciousnessLevel).forEach(buff => {
+            const buffItem = createBuffItem(buff, false, false);
+            personaGrid.appendChild(buffItem);
         });
 
         buffListContainer.appendChild(weaponsCol);
@@ -1067,7 +1248,7 @@ function populateBuffs(cardId) {
 
     } else {
         buffListContainer.className = 'buff-list';
-        availableBuffs.forEach(buff => {
+        dedupeBySkill(availableBuffs, consciousnessLevel).forEach(buff => {
             const buffItem = createBuffItem(buff, false, true);
             buffListContainer.appendChild(buffItem);
         });
@@ -1075,8 +1256,18 @@ function populateBuffs(cardId) {
 }
 
 function createBuffItem(buff, isWeapon, isChecked = true) {
-    const buffTypeLabel = buff.type === 'penetration' ? '穿透' : '减防';
-    const buffTypeClass = buff.type === 'penetration' ? 'buff-type-penetration' : 'buff-type-reduction';
+    let buffTypeLabel = '';
+    let buffTypeClass = '';
+    if (buff.type === 'penetration') {
+        buffTypeLabel = '穿透';
+        buffTypeClass = 'buff-type-penetration';
+    } else if (buff.type === 'reduction') {
+        buffTypeLabel = '减防';
+        buffTypeClass = 'buff-type-reduction';
+    } else if (buff.type === 'critRate') {
+        buffTypeLabel = '暴击';
+        buffTypeClass = 'buff-type-crit-rate';
+    }
     
     const buffItem = document.createElement('div');
     buffItem.className = 'buff-item';
@@ -1085,8 +1276,12 @@ function createBuffItem(buff, isWeapon, isChecked = true) {
     if (buff.source === '主权启程') {
        checkedAttr = '';
     }
+    // 全局buff（基础暴击率、我的宫殿、触电）默认勾选
+    if (buff.source === '基础暴击率' || buff.source === '我的宫殿' || buff.source === '触电') {
+        checkedAttr = 'checked';
+    }
     
-    const durationText = (buff.duration && !isNaN(buff.duration)) ? `${buff.duration}回合` : '永续';
+    const durationText = (buff.duration && buff.duration !== '' && !isNaN(buff.duration)) ? `${buff.duration}回合` : '永续';
     
     buffItem.innerHTML = `
         <input type="checkbox" id="buff-${buff.id}" data-buff-id="${buff.id}" class="buff-checkbox ${weaponClass}" ${checkedAttr}>
@@ -1115,12 +1310,108 @@ function setupBossSelector() {
     });
 }
 
+
+// 更新山岸风花的额外角色槽位
+function updateFuukaExtraSlot() {
+    const enlightenmentSelect = document.getElementById('char-select-5');
+    if (!enlightenmentSelect) {
+        console.warn('updateFuukaExtraSlot: enlightenment select not found');
+        return;
+    }
+    
+    const selectedChar = enlightenmentSelect.value;
+    const teamContainer = document.getElementById('team-container');
+    if (!teamContainer) {
+        console.warn('updateFuukaExtraSlot: team-container not found');
+        return;
+    }
+    
+    // 检查是否已经存在额外的槽位（cardId=6）
+    const existingExtraSlot = document.querySelector('.character-card[data-card-id="6"]');
+    
+    if (selectedChar === '山岸风花') {
+        // 如果选择了山岸风花，添加额外的角色槽位
+        if (!existingExtraSlot) {
+            // 确保角色列表已经初始化
+            if (!mainDpsChars || !supportChars) {
+                console.error('updateFuukaExtraSlot: mainDpsChars or supportChars not initialized');
+                return;
+            }
+            
+            const extraCard = createCharacterCard(6, 'fuukaExtra');
+            teamContainer.appendChild(extraCard);
+            
+            // 设置默认角色为"宫下美波·夏日"
+            const charSelect6 = document.getElementById('char-select-6');
+            if (charSelect6) {
+                charSelect6.value = '宫下美波·夏日';
+                // 触发change事件以确保相关函数被调用
+                charSelect6.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            
+            // 设置默认支援穿透为20
+            const penetrationInput6 = document.getElementById('manual-penetration-6');
+            if (penetrationInput6) {
+                penetrationInput6.value = '20';
+            }
+            
+            // 初始化新创建的卡片（如果上面的事件没有触发，这里作为备用）
+            populateBuffs(6);
+            updateCharacterAvatar(6);
+            setSovereignDepartureCheckbox(6);
+            // 触发计算
+            calculateTotals();
+        }
+    } else {
+        // 如果取消选择山岸风花或选择其他角色，移除额外的槽位
+        if (existingExtraSlot) {
+            existingExtraSlot.remove();
+            // 重新计算总数
+            calculateTotals();
+        }
+    }
+}
+
+
+function dedupeBySkill(buffList, consciousnessLevel) {
+    // key by source+name+type; keep the entry with the highest consciousness <= current
+    const best = new Map();
+    buffList.forEach(b => {
+        const need = parseInt(b.consciousness || '0');
+        if (need > consciousnessLevel) return; // skip if not available at current level
+        const key = `${b.source || ''}|${b.name || ''}|${b.type || ''}`;
+        const prev = best.get(key);
+        if (!prev) {
+            best.set(key, b);
+        } else {
+            const prevNeed = parseInt(prev.consciousness || '0');
+            // Prefer higher need; tie-breaker by higher value
+            if (need > prevNeed) best.set(key, b);
+            else if (need === prevNeed) {
+                const v1 = parseFloat(prev.value || '0');
+                const v2 = parseFloat(b.value || '0');
+                if (v2 > v1) best.set(key, b);
+            }
+        }
+    });
+    return Array.from(best.values());
+}
+
 // --- EVENT HANDLING ---
 function addEventListeners() {
     document.body.addEventListener('change', (e) => {
         if (e.target.matches('input, select')) {
             if (e.target.classList.contains('char-select') || e.target.classList.contains('consciousness-select')) {
                 const cardId = e.target.dataset.cardId;
+                const charName = e.target.classList.contains('char-select') ? e.target.value : document.getElementById(`char-select-${cardId}`).value;
+                // 移除详细的日志输出，减少控制台噪音
+                // console.log(`Character selection changed: cardId=${cardId}, charName=${charName}`);
+                
+                // 如果解明角色选择变化，更新山岸风花的额外槽位
+                if (e.target.classList.contains('char-select') && cardId === '5') {
+                    updateFuukaExtraSlot();
+                }
+                
                 populateBuffs(cardId);
                 updateCharacterAvatar(cardId);
                 
@@ -1128,8 +1419,8 @@ function addEventListeners() {
                      loadRecommendedTeam(e.target.value);
                  }
                  
-                 // 设置启程主权的勾选状态
-                 if (cardId >= 3 && cardId <= 5) {
+                 // 设置启程主权的勾选状态（包括额外的槽位）
+                 if ((cardId >= 3 && cardId <= 5) || cardId === '6') {
                      setSovereignDepartureCheckbox(cardId);
                  }
             }
@@ -1154,26 +1445,132 @@ function addEventListeners() {
 function calculateTotals() {
     let totalPenetration = 0;
     let totalReduction = 0;
+    let totalCritRate = 0;
+    let mitsuruBonus = 0; // 桐条美鹤技能加成
+    let fuukaBonus = 0;   // 山岸风花技能加成
 
+    // 1) 只统计 穿透/减防（不在这里统计暴击率，避免双算）
     document.querySelectorAll('.buff-checkbox:checked').forEach(checkbox => {
         const buffId = checkbox.dataset.buffId;
         const buff = allBuffs.find(b => b.id === buffId);
-        
         if (buff) {
             const value = parseFloat(checkbox.closest('.buff-item').querySelector('.buff-value-input').value) || 0;
             if (buff.type === 'penetration') totalPenetration += value;
             else if (buff.type === 'reduction') totalReduction += value;
+            // 注意：不累加 critRate，暴击率在第5步单独算
         }
     });
-    
+
+    // 2) 手动输入的穿透（主C/解明/辅助/风花支援）
+    let mainCPenetration = 0;
+    let supportPenetrationTotal = 0;
+    let enlightenmentPenetration = 0;
     document.querySelectorAll('.manual-penetration').forEach(input => {
-        totalPenetration += parseFloat(input.value) || 0;
+        const cardId = input.id.replace('manual-penetration-', '');
+        const value = parseFloat(input.value) || 0;
+        if (cardId === '2') { mainCPenetration = value; totalPenetration += value; }
+        else if (cardId === '5') { enlightenmentPenetration = value; totalPenetration += value; }
+       // else if (cardId === '3' || cardId === '4' || cardId === '6') { supportPenetrationTotal += value; totalPenetration += value; }
     });
 
+    // 3) 美鹤“冰之舞刺击”：解明启示穿透*12%
+    for (let i = 3; i <= 6; i++) {
+        const sel = document.getElementById(`char-select-${i}`);
+        if (sel && sel.value === '桐条美鹤') {
+            mitsuruBonus = enlightenmentPenetration * 0.03 * 5;
+            if (mitsuruBonus > 0) totalPenetration += mitsuruBonus;
+            break;
+        }
+    }
+
+    // 4) 风花“深清”：辅助总穿透*4.5%（包含风花额外槽 cardId=6）
+    const enlightenmentSelect = document.getElementById('char-select-5');
+    const enlightenmentChar = enlightenmentSelect ? enlightenmentSelect.value : '';
+    if (enlightenmentChar === '山岸风花') {
+        const carryInput = document.getElementById('manual-penetration-6');
+        const carryPen   = carryInput ? (parseFloat(carryInput.value) || 0) : 0;
+        fuukaBonus = carryPen * 0.045;
+        if (fuukaBonus > 0) totalPenetration += fuukaBonus;
+    }
+
+    // 5) 只在这里统计 暴击率
+    // 5.1 全局（基础/我的宫殿/状态）
+    const globalBuffsList = document.getElementById('global-buffs-list');
+    if (globalBuffsList) {
+        globalBuffsList.querySelectorAll('.buff-checkbox:checked').forEach(checkbox => {
+            const buff = allBuffs.find(b => b.id === checkbox.dataset.buffId);
+            if (buff && buff.type === 'critRate') {
+                const v = parseFloat(checkbox.closest('.buff-item').querySelector('.buff-value-input').value) || buff.value;
+                totalCritRate += v;
+            }
+        });
+    }
+    // 5.2 wonder（反叛/革命）
+    if (characterDb['wonder']) {
+        const wonderCrits = characterDb['wonder'].buffs.filter(b => b.type === 'critRate');
+        wonderCrits.forEach(buff => {
+            const checkbox = document.querySelector(`.buff-checkbox[data-buff-id="${buff.id}"]`);
+            if (checkbox && checkbox.checked) {
+                const v = parseFloat(checkbox.closest('.buff-item').querySelector('.buff-value-input').value) || buff.value;
+                totalCritRate += v;
+            }
+        });
+    }
+    // 5.3 角色暴击（按意识过滤）
+    for (let i = 1; i <= 6; i++) {
+        const charSelect = document.getElementById(`char-select-${i}`);
+        const conSelect  = document.getElementById(`consciousness-select-${i}`);
+        if (!charSelect || !conSelect) continue;
+        const charName = charSelect.value;
+        const conLv = parseInt(conSelect.value) || 0;
+        if (charName && charName !== '无' && characterDb[charName]) {
+            const crits = characterDb[charName].buffs.filter(b => b.type === 'critRate' && conLv >= parseInt(b.consciousness || '0'));
+            crits.forEach(buff => {
+                const checkbox = document.querySelector(`.buff-checkbox[data-buff-id="${buff.id}"]`);
+                if (checkbox && checkbox.checked) {
+                    const v = parseFloat(checkbox.closest('.buff-item').querySelector('.buff-value-input').value) || buff.value;
+                    totalCritRate += v;
+                }
+            });
+        }
+    }
+    // 5.4 主C/解明的手动暴击
+    document.querySelectorAll('.manual-crit-rate').forEach(input => {
+        totalCritRate += (parseFloat(input.value) || 0);
+    });
+
+    // 6) 更新 UI
     document.getElementById('total-penetration').textContent = `${totalPenetration.toFixed(1)}%`;
-    document.getElementById('total-reduction').textContent = `${totalReduction.toFixed(1)}%`;
-    
+    document.getElementById('total-reduction').textContent   = `${totalReduction.toFixed(1)}%`;
+    document.getElementById('total-crit-rate').textContent   = `${totalCritRate.toFixed(1)}%`;
+
+    // 7) 特效提示
+    updateSpecialEffectsUI(mitsuruBonus, fuukaBonus);
+
+    // 8) 需求值
     calculateNeededValues(totalPenetration, totalReduction);
+}
+
+// 更新特殊技能加成显示
+function updateSpecialEffectsUI(mitsuruBonus, fuukaBonus) {
+    const displayEl = document.getElementById('special-effects-display');
+    if (!displayEl) return;
+    
+    const effects = [];
+    if (mitsuruBonus > 0) {
+        effects.push(`冰之舞刺击 +${mitsuruBonus.toFixed(2)}%`);
+    }
+    if (fuukaBonus > 0) {
+        effects.push(`深清 +${fuukaBonus.toFixed(2)}%`);
+    }
+    
+    if (effects.length > 0) {
+        displayEl.textContent = `特殊技能加成：${effects.join('，')}`;
+        displayEl.style.display = 'block';
+    } else {
+        displayEl.textContent = '';
+        displayEl.style.display = 'none';
+    }
 }
 
 function calculateNeededValues(penetration, reduction) {
@@ -1215,6 +1612,9 @@ document.addEventListener('DOMContentLoaded', () => {
         populateBuffs(cardId);
         updateCharacterAvatar(cardId);
     });
+    
+    // 检查是否需要创建山岸风花的额外槽位
+    updateFuukaExtraSlot();
 
          const mainCSelect = document.getElementById('char-select-2');
      if (mainCSelect) {
@@ -1224,9 +1624,10 @@ document.addEventListener('DOMContentLoaded', () => {
          loadRecommendedTeam('佐原海夕·夏日');
      }
      
-     // 初始化时设置所有角色的启程主权状态
-     for (let i = 1; i <= 5; i++) {
-         if (i !== 2) { // 跳过C位，因为还没有选择角色
+     // 初始化时设置所有角色的启程主权状态（包括可能存在的额外槽位）
+     for (let i = 1; i <= 6; i++) {
+         const charSelect = document.getElementById(`char-select-${i}`);
+         if (charSelect && i !== 2) { // 跳过C位，因为还没有选择角色
              setSovereignDepartureCheckbox(i);
          }
      }
